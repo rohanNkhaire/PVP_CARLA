@@ -58,6 +58,9 @@ class CarlaEnv(gym.Env):
         # Controller
         self.disable_brake = False
         self.enable_takeover = enable_takeover
+        self.takeover = False
+        self.last_takeover = False
+        self.takeover_start = False
 
         try:
             self.client = carla.Client(host, port)  
@@ -77,6 +80,7 @@ class CarlaEnv(gym.Env):
 
             # Spawn Ego Vehicle
             self.tesla = self.world.get_blueprint_library().filter('model3')[0]
+            self.tesla.set_attribute('role_name', 'hero')
             self.start_transform = self._get_start_transform()
             self.curr_loc = self.start_transform.location
             self.vehicle = self.world.spawn_actor(self.tesla, self.start_transform)
@@ -219,13 +223,13 @@ class CarlaEnv(gym.Env):
                 raise e
             if self.disable_brake and human_action[1] < 0.0:
                 human_action[1] = 0.0
-            takeover = self.controller.left_shift_paddle or self.controller.right_shift_paddle
+            self.takeover = self.controller.left_shift_paddle or self.controller.right_shift_paddle
         else:
             human_action = [0, 0]
-            takeover = False
+            self.takeover = False
 
         # Add human action
-        if takeover is False and action is not None:
+        if self.takeover is False and action is not None:
             # Get throttle and steer
             throttle, steer = [float(a) for a in action]
 
@@ -252,8 +256,6 @@ class CarlaEnv(gym.Env):
         # Get most recent observation
         if 'birdview' in self.obs_sensor:
             self.observation = self._get_birdview_observation()
-        #elif 'birdview' in self.obs_sensor and action is None:
-        #    self.observation = self._get_default_birdview_observation()
         elif 'semantic' in self.obs_sensor:
             self.observation = self._get_observation()
             self.get_semantic_image(self.observation)    
@@ -314,12 +316,18 @@ class CarlaEnv(gym.Env):
             self.success_state = True
 
         self.distance_from_center_history.append(self.distance_from_center)
+
+        # Takeover cost
+        self.takeover_start = True if not self.last_takeover and self.takeover else False
+        if self.takeover_start:
+            takeover_cost = self.get_takeover_cost(human_action, action)
         
         # Call external reward fn
         self.last_reward = self.reward_fn(self)
-        self.total_reward += self.last_reward
+        self.total_reward = self.total_reward + self.last_reward + takeover_cost
 
         self.step_count += 1
+        self.last_takeover = self.takeover
 
         if self.allow_render:
             pygame.event.pump()
@@ -336,7 +344,7 @@ class CarlaEnv(gym.Env):
             'avg_center_dev': (self.center_lane_deviation / self.step_count),
             'avg_speed': (self.speed_accum / self.step_count),
             'mean_reward': (self.total_reward / self.step_count),
-            'takeover': takeover
+            'takeover': self.takeover,
         }
 
         return self.processed_obs, self.last_reward, self.terminate or self.success_state, info
@@ -356,6 +364,7 @@ class CarlaEnv(gym.Env):
   
         # Add metrics to HUD
         self.extra_info.extend([
+            "Takeover {}".format(self.takeover),
             "Episode {}".format(self.episode_idx),
             "Reward: % 19.2f" % self.last_reward,
             "",
@@ -375,7 +384,7 @@ class CarlaEnv(gym.Env):
         if 'birdview' in self.obs_sensor:
             obs_h, obs_w = (self._bev_wrapper.height, self._bev_wrapper.width)
             pos_observation = (self.display.get_size()[0] - obs_w - 10, 10)
-            bev_img = visualize_birdview(self.observation["birdview"])
+            bev_img = visualize_birdview(self.observation["image"])
             self.display.blit(pygame.surfarray.make_surface(bev_img.swapaxes(0, 1)), pos_observation)
         else:
             obs_h, obs_w = self.observation.height, self.observation.width
@@ -474,12 +483,12 @@ class CarlaEnv(gym.Env):
     
     def _get_birdview_observation(self):
 
-        speed = self.get_vehicle_lon_speed()
+        speed = self.get_vehicle_lon_speed()*3.6
         bev_img = get_birdview(self._bev_wrapper.get_bev_data())
 
         raw_obs = {
-                "birdview": bev_img,
-                "speed_kmh": speed,
+                "image": bev_img,
+                "speed": speed,
             }
         
         return raw_obs
@@ -669,14 +678,14 @@ class CarlaEnv(gym.Env):
     
     def postprocess_obs(self, raw_obs, in_reset=False):
         if 'birdview' in self.obs_sensor:
-            speed = float(raw_obs["speed_kmh"])  # in km/h
+            speed = float(raw_obs["speed"])  # in km/h
             normalized_speed = min(speed, self.vehicle.get_speed_limit()) / self.vehicle.get_speed_limit()
-            obs = raw_obs["birdview"][..., [0, 1, 5, 6, 8]]
+            obs = raw_obs["image"][..., [0, 1, 5, 6, 8]]
             if self.normalize_obs:
                 obs = obs.astype(np.float32) / 255
             obs_out = {
-                "birdview": obs,
-                'speed_kmh': np.array([normalized_speed]),
+                "image": obs,
+                'speed': np.array([normalized_speed]),
             }
         else:
             obs_out = raw_obs
@@ -686,8 +695,8 @@ class CarlaEnv(gym.Env):
     def _get_default_birdview_observation(self):
 
         default_obs = {
-            "birdview" : np.zeros((84,84,9)),
-            'speed_kmh' : 0.0,
+            "image" : np.zeros((84,84,9)),
+            'speed' : 0.0,
         }
 
         return default_obs

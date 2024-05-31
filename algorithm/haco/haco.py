@@ -5,12 +5,12 @@ import numpy as np
 import torch as th
 from torch.nn import functional as F
 
-from pvp.sb3.common.noise import ActionNoise
-from pvp.sb3.common.type_aliases import GymEnv, Schedule
-from pvp.sb3.common.utils import polyak_update
-from pvp.sb3.haco.haco_buffer import HACOReplayBuffer
-from pvp.sb3.haco.policies import HACOPolicy
-from pvp.sb3.sac import SAC
+from stable_baselines3.common.noise import ActionNoise
+from stable_baselines3.common.type_aliases import GymEnv, Schedule
+from stable_baselines3.common.utils import polyak_update
+from algorithm.haco.haco_buffer import HACOReplayBuffer
+from algorithm.haco.policies import HACOPolicy
+from stable_baselines3.sac import SAC
 from collections import defaultdict
 
 

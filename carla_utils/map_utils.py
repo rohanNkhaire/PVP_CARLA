@@ -180,6 +180,7 @@ class MapImage:
             else:
                 return (w.lane_id * waypoint.lane_id < 0) or w.lane_id == waypoint.lane_id
 
+        debug_topology = carla_map.get_topology()
         topology = [x[0] for x in carla_map.get_topology()]
         topology = sorted(topology, key=lambda w: w.transform.location.z)
 

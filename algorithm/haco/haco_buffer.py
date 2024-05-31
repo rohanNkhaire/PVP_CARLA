@@ -7,9 +7,9 @@ import torch as th
 from gym import spaces
 from gymnasium import spaces as new_spaces
 
-from pvp.sb3.common.buffers import ReplayBuffer
-from pvp.sb3.common.type_aliases import TensorDict
-from pvp.sb3.common.vec_env import VecNormalize
+from stable_baselines3.common.buffers import ReplayBuffer
+from stable_baselines3.common.type_aliases import TensorDict
+from stable_baselines3.common.vec_env import VecNormalize
 
 try:
     # Check memory used by replay buffer when possible

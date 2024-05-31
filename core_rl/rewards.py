@@ -22,7 +22,7 @@ def create_reward_fn(reward_fn):
             global low_speed_timer
             low_speed_timer += 1.0 / env.fps
             speed = env.get_vehicle_lon_speed()
-            if low_speed_timer > 5.0 and speed < 1.0 and env.current_waypoint_index >= 0:
+            if low_speed_timer > 5.0 and speed < 1.0 and env.current_waypoint_index >= 1:
                 env.terminate = True
                 terminal_reason = "Vehicle stopped"
 

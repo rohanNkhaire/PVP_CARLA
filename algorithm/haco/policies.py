@@ -1,9 +1,9 @@
 from typing import Optional
 
-from pvp.sb3.common.policies import ContinuousCritic
-from pvp.sb3.common.torch_layers import BaseFeaturesExtractor
-from pvp.sb3.common.type_aliases import Schedule
-from pvp.sb3.sac.policies import SACPolicy
+from stable_baselines3.common.policies import ContinuousCritic
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+from stable_baselines3.common.type_aliases import Schedule
+from stable_baselines3.sac.policies import SACPolicy
 
 # CAP the standard deviation of the actor
 LOG_STD_MAX = 2
